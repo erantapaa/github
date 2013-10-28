@@ -40,11 +40,11 @@ todaysUpdates = do
   results <- haskellUpdates auth day
   return $ concat results
 
-test1 = haskellUpdates Nothing "2013-10-27"
+test1 = haskellUpdates Nothing "2013-10-28"
 
 test2 = do
   auth <- githubCreds
-  haskellUpdates auth "2013-10-27"
+  haskellUpdates auth "2013-10-28"
 
 haskellUpdates auth date = forM ['a'..'e'] (\letter -> do
    results <- haskellUpdates' auth date letter
@@ -58,7 +58,7 @@ haskellUpdates auth date = forM ['a'..'e'] (\letter -> do
 
 haskellUpdates' :: Maybe Github.GithubAuth -> String -> Char -> IO (Either Github.Error Github.SearchReposResult)
 haskellUpdates' auth date letter = do
-  let query = "q=" ++ [letter] ++ " in%3Aname language%3Ahaskell pushed%3A>" ++ date ++ "&per_page=100"
+  let query = "q=" ++ [letter] ++ " in%3Aname language%3Ahaskell created%3A>" ++ date ++ "&per_page=100"
   handleRateLimit $ Github.searchRepos' auth query
 
 formatRepo :: Github.Repo -> String

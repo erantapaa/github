@@ -5,7 +5,9 @@ module Github.Util (
   sleepSeconds,
   today,
   rateLimit,
-  handleRateLimit
+  handleRateLimit,
+  formatUTC,
+  uniqueRepos
 ) where
 
 import qualified Github.Private as Github
@@ -17,13 +19,14 @@ import Data.Word (Word8)
 import Control.Concurrent (threadDelay)
 import Data.Time.Clock (getCurrentTime, UTCTime(..))
 import Text.Printf (printf)
-import Data.Time.LocalTime (utc,utcToLocalTime,localDay)
+import Data.Time.LocalTime (utc,utcToLocalTime,localDay,localTimeOfDay,TimeOfDay(..))
 import Data.Time.Calendar (toGregorian)
 import qualified Control.Exception as E
 import qualified Network.HTTP.Types as W
 import Data.Maybe (fromMaybe,listToMaybe)
 import Network.HTTP.Conduit (HttpException(..))
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import GHC.Exts (sortWith,groupWith)
 
 data RateLimit = RateLimit { rateLimitLimit :: Int, rateLimitRemaining :: Int, rateLimitReset :: Int } deriving (Show)
 
@@ -75,6 +78,7 @@ rateLimit e =
           where limit     = findHeader headers "X-RateLimit-Limit"
                 remaining = findHeader headers "X-RateLimit-Remaining"
                 reset     = findHeader headers "X-RateLimit-Reset"
+        Just _ -> Nothing
         Nothing -> Nothing
     otherwise -> Nothing
 
@@ -87,9 +91,30 @@ findHeader hs key =
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
 
+-- | blah blah
 toChar :: Word8 -> Char
 toChar = C.chr . fromIntegral
 
+-- | convert a UTCTime to Unix epoch time (integral)
 toSecs :: UTCTime -> Int
 toSecs = round . utcTimeToPOSIXSeconds
+
+-- | format a UTCTime
+formatUTC :: UTCTime -> String
+formatUTC t =
+  let local = utcToLocalTime utc t
+      day = localDay local
+      (y,m,d) = toGregorian day
+      localtime = localTimeOfDay local
+      hh = todHour localtime
+      mm = todMin localtime
+      ss = todSec localtime
+   in printf "%d-%02d-%02dT%02d:%02d:%02d" y m d hh mm ((floor ss) :: Int)
+
+-- | remove duplicates from a Repo list
+uniqueRepos :: [ Github.Repo ] -> [ Github.Repo ]
+uniqueRepos rs =
+  let sorted = sortWith Github.repoHtmlUrl rs
+      grouped = groupWith Github.repoHtmlUrl sorted
+  in map head grouped
 
