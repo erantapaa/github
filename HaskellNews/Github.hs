@@ -59,13 +59,21 @@ formatRepo r =
           fill n s = s ++ replicate n' ' '
             where n' = max 0 (n - length s)
 
+formatRepoHtml r =
+  "<li>" ++ "<a href=\"" ++ url ++ "\"><br/>" ++ name ++ "</a> -- " ++ desc
+  where
+    url = Github.repoHtmlUrl r
+    name = Github.repoName r
+    desc = orEmpty $ Github.repoDescription r
+    orEmpty = fromMaybe ""
+
 formatMaybeDate = maybe "???" formatDate
 
 formatDate = show . Github.fromGithubDate
 
-pushedRepos :: Maybe Github.GithubAuth -> UTCTime -> IO [ Github.Repo ]
-pushedRepos auth t = do
-  results <- allPages (doQuery auth) (baseQuery "haskell" "pushed" t)
+pushedRepos :: Maybe Github.GithubAuth -> String -> UTCTime -> IO [ Github.Repo ]
+pushedRepos auth language t = do
+  results <- allPages (doQuery auth) (baseQuery language "pushed" t)
   let repos = sortWith Github.repoPushedAt (uniqueRepos $ concat $ results)
   return repos
 

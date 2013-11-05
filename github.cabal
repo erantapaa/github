@@ -110,6 +110,18 @@ source-repository head
   type: git
   location: git://github.com/fpco/github.git
 
+Executable hn
+  main-is: Main.hs
+  build-depends:
+    directory == 1.2.*,
+    persistent,
+    persistent-sqlite == 1.2.*,
+    persistent-template == 1.2.*,
+    unix,
+    transformers
+  other-modules:
+    HaskellNews.Persistent,
+    HaskellNews.Github
 
 Library
   -- Modules exported by the library.
