@@ -1,65 +1,41 @@
 {-# LANGUAGE OverloadedStrings #-}
 module SearchRepos where
 
-import Github.Util (today,githubCreds,handleRateLimit)
 import qualified Github.Search as Github
 import qualified Github.Data as Github
 import Control.Monad (forM,forM_)
 import Data.Maybe (fromMaybe)
-
-import Data.List (intercalate,sortBy,groupBy)
-import GHC.Exts (sortWith,groupWith)
+import Data.List (intercalate)
+import System.Environment (getArgs)
+import Text.Printf (printf)
+import Data.Time.Clock (getCurrentTime, UTCTime(..))
+import Data.Time.LocalTime (utc,utcToLocalTime,localDay,localTimeOfDay,TimeOfDay(..))
+import Data.Time.Calendar (toGregorian)
 
 main = do
-  results <- todaysUpdates
-  print $ length results
+  args <- getArgs
+  date <- case args of
+            (x:_)     -> return x
+            otherwise -> today
+  let query = "q=language%3Ahaskell created%3A>" ++ date ++ "&per_page=100"
+  let auth = Nothing
+  result <- Github.searchRepos' auth query
+  case result of
+    Left e  -> putStrLn $ "Error: " ++ show e
+    Right r -> do forM_ (Github.searchReposRepos r) (\r -> do
+                    putStrLn $ formatRepo r
+                    putStrLn ""
+                    )
+                  putStrLn $ "Count: " ++ show n ++ " Haskell repos created since " ++ date
+      where n = Github.searchReposTotalCount r
 
-main2 = do
-  results <- todaysUpdates
-  let names = map Github.repoName (uniqueRepos results)
-  print names
-
-main3 = do
-  results <- todaysUpdates
-  let repos = sortWith Github.repoPushedAt (uniqueRepos results)
-  forM_ repos (\r -> do
-    putStrLn $ formatRepo r
-    putStrLn ""
-    )
-
--- | remove duplicates from a Repo list
-uniqueRepos :: [ Github.Repo ] -> [ Github.Repo ]
-uniqueRepos rs = 
-  let sorted = sortWith Github.repoHtmlUrl rs
-      grouped = groupWith Github.repoHtmlUrl sorted
-  in map head grouped
-
-todaysUpdates = do
-  day <- today
-  auth <- githubCreds
-  results <- haskellUpdates auth day
-  return $ concat results
-
-test1 = haskellUpdates Nothing "2013-10-28"
-
-test2 = do
-  auth <- githubCreds
-  haskellUpdates auth "2013-10-28"
-
-haskellUpdates auth date = forM ['a'..'e'] (\letter -> do
-   results <- haskellUpdates' auth date letter
-   case results of
-     Left e  -> do putStrLn $ "Error for letter '" ++ [letter] ++ "': " ++ show e;
-                   return []
-     Right r -> do putStrLn $ "letter " ++ [letter] ++ " count: " ++ show n
-                   return $ Github.searchReposRepos r
-       where n = Github.searchReposTotalCount r
-   )
-
-haskellUpdates' :: Maybe Github.GithubAuth -> String -> Char -> IO (Either Github.Error Github.SearchReposResult)
-haskellUpdates' auth date letter = do
-  let query = "q=" ++ [letter] ++ " in%3Aname language%3Ahaskell created%3A>" ++ date ++ "&per_page=100"
-  handleRateLimit $ Github.searchRepos' auth query
+-- | return today (in UTC) formatted as YYYY-MM-DD
+today :: IO String
+today = do
+  now <- getCurrentTime
+  let day = localDay $ utcToLocalTime utc now
+      (y,m,d) = toGregorian day
+   in return $ printf "%d-%02d-%02d" y m d
 
 formatRepo :: Github.Repo -> String
 formatRepo r =
@@ -78,4 +54,3 @@ formatRepo r =
 formatMaybeDate = maybe "???" formatDate
 
 formatDate = show . Github.fromGithubDate
-
